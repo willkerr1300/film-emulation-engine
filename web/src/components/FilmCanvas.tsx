@@ -170,9 +170,10 @@ const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halat
         if (imageSrc) {
             const image = new Image();
             image.onload = () => {
+                console.log("Film Emulation Engine v2.0 - Static Grain & Orientation Fix");
                 gl.bindTexture(gl.TEXTURE_2D, texture);
-                // REMOVED UNPACK_FLIP_Y for correct orientation with current UV mapping
-                // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); 
+                // Explicitly disable flip to ensure correct orientation with our UV mapping
+                gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
                 gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
 
                 // Mipmaps needed for power-of-2, otherwise CLAMP_TO_EDGE
