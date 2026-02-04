@@ -1,42 +1,93 @@
-#root {
-  max-width: 1280px;
+.app-container {
+  max-width: 1400px;
   margin: 0 auto;
   padding: 2rem;
+}
+
+.main-title {
   text-align: center;
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  font-weight: 300;
+  letter-spacing: 2px;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.upload-section {
+  text-align: center;
+  margin-bottom: 3rem;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.upload-btn {
+  background: #333;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: background 0.2s;
+  display: inline-block;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.upload-btn:hover {
+  background: #555;
 }
 
-.card {
-  padding: 2em;
+.status-text {
+  margin-top: 10px;
+  color: #666;
+  font-size: 0.9rem;
 }
 
-.read-the-docs {
-  color: #888;
+.film-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.film-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.film-header {
+  padding: 1rem;
+  background: #f8f8f8;
+  border-bottom: 1px solid #eee;
+}
+
+.film-header h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: #222;
+}
+
+.film-header p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.placeholder-tile {
+  width: 100%;
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stock-name {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: bold;
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+}
+
+canvas {
+  width: 100%;
+  height: auto;
+  display: block;
 }

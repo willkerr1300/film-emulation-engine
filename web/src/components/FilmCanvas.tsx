@@ -1,12 +1,13 @@
+```
 import React, { useEffect, useRef } from 'react';
+import { FilmPreset } from '../presets';
 
 interface FilmCanvasProps {
     imageSrc: string | null;
-    grainIntensity: number;
-    halationIntensity: number;
+    preset: FilmPreset;
 }
 
-const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halationIntensity }) => {
+const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, preset }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const textureRef = useRef<WebGLTexture | null>(null);
 
@@ -26,68 +27,69 @@ const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halat
             attribute vec4 aVertexPosition;
             attribute vec2 aTextureCoord;
             varying highp vec2 vTextureCoord;
-            void main() {
-                gl_Position = aVertexPosition;
-                vTextureCoord = aTextureCoord;
-            }
-        `;
+void main() {
+    gl_Position = aVertexPosition;
+    vTextureCoord = aTextureCoord;
+}
+`;
 
         const fsSource = `
             precision mediump float;
             varying highp vec2 vTextureCoord;
             uniform sampler2D uSampler;
+            
             uniform float uGrainIntensity;
             uniform float uHalationIntensity;
+            uniform float uSaturation;
+            uniform float uContrast;
+            uniform vec3 uTint;
+            
             uniform vec2 uResolution;
 
-            // Pseudo-random function
             float random(vec2 st) {
-                return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
-            }
+    return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+}
 
-            // Simple sigmoid curve for contrast
-            vec3 sCurve(vec3 x) {
-                return x * x * (3.0 - 2.0 * x);
-            }
-
-            void main() {
+void main() {
                 vec4 color = texture2D(uSampler, vTextureCoord);
-                
-                // --- 1. Halation (Simplified) ---
-                // Sample red channel with a slight offset/blur
-                // This is a very cheap approximation. A real Gaussian blur would be better but requires more passes.
-                if (uHalationIntensity > 0.0) {
+
+    // --- 1. Halation ---
+    if (uHalationIntensity > 0.0) {
                     float halation = 0.0;
                     float offset = 0.005 * uHalationIntensity;
-                    halation += texture2D(uSampler, vTextureCoord + vec2(offset, 0.0)).r;
-                    halation += texture2D(uSampler, vTextureCoord - vec2(offset, 0.0)).r;
-                    halation += texture2D(uSampler, vTextureCoord + vec2(0.0, offset)).r;
-                    halation += texture2D(uSampler, vTextureCoord - vec2(0.0, offset)).r;
-                    halation /= 4.0;
+        halation += texture2D(uSampler, vTextureCoord + vec2(offset, 0.0)).r;
+        halation += texture2D(uSampler, vTextureCoord - vec2(offset, 0.0)).r;
+        halation += texture2D(uSampler, vTextureCoord + vec2(0.0, offset)).r;
+        halation += texture2D(uSampler, vTextureCoord - vec2(0.0, offset)).r;
+        halation /= 4.0;
                     
-                    // Add the red glow only to bright areas
                     float threshold = 0.7;
-                    if (halation > threshold) {
-                         color.r += (halation - threshold) * 0.5 * uHalationIntensity;
-                    }
-                }
+        if (halation > threshold) {
+            color.r += (halation - threshold) * 0.5 * uHalationIntensity;
+        }
+    }
 
-                // --- 2. Color Response ---
-                // Apply S-Curve for filmic contrast
-                color.rgb = sCurve(color.rgb);
+    // --- 2. Color Grading ---
 
-                // --- 3. Grain (Static Physics-based) ---
-                // Grain is inherent to the film structure, so it relies on texture coordinates.
-                float r = random(vTextureCoord * uResolution); // Scale by resolution for pixel-level noise
+    // Tint (White Balance)
+    color.rgb *= uTint;
+
+                // Saturation
+                float luminance = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+                vec3 grey = vec3(luminance);
+    color.rgb = mix(grey, color.rgb, uSaturation);
+
+    // Contrast
+    color.rgb = (color.rgb - 0.5) * uContrast + 0.5;
+
+                // --- 3. Grain ---
+                float r = random(vTextureCoord * uResolution); 
                 float noise = (r - 0.5) * uGrainIntensity;
-                
-                // Multiplicative blending for more realistic density interaction
-                // (Grain is silver halide crystals blocking light)
-                color.rgb += noise; 
-                
-                gl_FragColor = color;
-            }
-        `;
+    color.rgb += noise;
+
+    gl_FragColor = color;
+}
+`;
 
         // --- Init Shaders ---
         const initShaderProgram = (gl: WebGLRenderingContext, vsSource: string, fsSource: string) => {
@@ -132,6 +134,9 @@ const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halat
             uSampler: gl.getUniformLocation(program, 'uSampler'),
             uGrainIntensity: gl.getUniformLocation(program, 'uGrainIntensity'),
             uHalationIntensity: gl.getUniformLocation(program, 'uHalationIntensity'),
+            uSaturation: gl.getUniformLocation(program, 'uSaturation'),
+            uContrast: gl.getUniformLocation(program, 'uContrast'),
+            uTint: gl.getUniformLocation(program, 'uTint'),
             uResolution: gl.getUniformLocation(program, 'uResolution'),
         };
 
@@ -170,7 +175,6 @@ const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halat
         if (imageSrc) {
             const image = new Image();
             image.onload = () => {
-                console.log("Film Emulation Engine v2.0 - Static Grain & Orientation Fix");
                 gl.bindTexture(gl.TEXTURE_2D, texture);
                 // Explicitly disable flip to ensure correct orientation with our UV mapping
                 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -229,38 +233,33 @@ const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, grainIntensity, halat
             gl.uniform1i(uniformLocs.uSampler, 0);
 
             // Set Uniforms
-            // Removed uTime
-            gl.uniform1f(uniformLocs.uGrainIntensity, grainIntensity);
-            gl.uniform1f(uniformLocs.uHalationIntensity, halationIntensity);
+            gl.uniform1f(uniformLocs.uGrainIntensity, preset.grain);
+            gl.uniform1f(uniformLocs.uHalationIntensity, preset.halation);
+            gl.uniform1f(uniformLocs.uSaturation, preset.saturation);
+            gl.uniform1f(uniformLocs.uContrast, preset.contrast);
+            gl.uniform3fv(uniformLocs.uTint, preset.tint);
+            
             gl.uniform2f(uniformLocs.uResolution, gl.canvas.width, gl.canvas.height);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         };
 
-        // Render immediately if just params changed (and we have texture)
         if (imageSrc) {
-            // If image is loading, logic is in onload.
-            // But if we are re-rendering due to props change, we need to draw.
-            // We can't guarantee image is reused easily without loading again in this structure
-            // UNLESS we check if texture is valid.
-            // This Effect runs on `imageSrc` change so it reloads image.
-            // But it also runs on intensity change.
-            // Optimization: separate image loading effect? 
-            // For now: it reloads image on slider change which is slow?
-            // No, `image.src = dataURL` is fast if cached, but effectively re-uploads texture.
-            // To fix slider lag: We should separate texture loading.
+            // Already handled by onload usually, but if preset changes...
+            // Optimization: we could just call render() if texture exists.
+            if (textureRef.current) render();
         } else {
-            render(); // Render placeholder
+            render(); 
         }
-
-        // Cleanup not strictly needed for one-shot unless we want to delete texture
+        
         return () => {
             gl.deleteTexture(texture);
             gl.deleteProgram(program);
         };
-    }, [imageSrc, grainIntensity, halationIntensity]); // Re-init on src change simplified, optimizable but works
+    }, [imageSrc, preset]);
 
-    return <canvas ref={canvasRef} width={800} height={600} style={{ border: '1px solid #333', maxWidth: '100%' }} />;
+    return <canvas ref={canvasRef} width={800} height={600} style={{ width: '100%', height: 'auto', display: 'block' }} />;
 };
 
 export default FilmCanvas;
+```
