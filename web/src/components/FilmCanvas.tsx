@@ -1,52 +1,37 @@
-```
 import React, { useEffect, useRef } from 'react';
-import { FilmPreset } from '../presets';
+import type { FilmPreset } from '../presets';
 
 interface FilmCanvasProps {
     imageSrc: string | null;
     preset: FilmPreset;
 }
 
-const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, preset }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const textureRef = useRef<WebGLTexture | null>(null);
+// --- Shader Sources ---
 
-    useEffect(() => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-
-        const gl = canvas.getContext('webgl');
-        if (!gl) {
-            console.error('WebGL not supported');
-            return;
-        }
-
-        // --- Shader Sources ---
-
-        const vsSource = `
-            attribute vec4 aVertexPosition;
-            attribute vec2 aTextureCoord;
-            varying highp vec2 vTextureCoord;
+const vsSource = `
+    attribute vec4 aVertexPosition;
+    attribute vec2 aTextureCoord;
+    varying highp vec2 vTextureCoord;
 void main() {
     gl_Position = aVertexPosition;
     vTextureCoord = aTextureCoord;
 }
 `;
 
-        const fsSource = `
-            precision mediump float;
-            varying highp vec2 vTextureCoord;
-            uniform sampler2D uSampler;
-            
-            uniform float uGrainIntensity;
-            uniform float uHalationIntensity;
-            uniform float uSaturation;
-            uniform float uContrast;
-            uniform vec3 uTint;
-            
-            uniform vec2 uResolution;
+const fsSource = `
+    precision mediump float;
+    varying highp vec2 vTextureCoord;
+    uniform sampler2D uSampler;
+    
+    uniform float uGrainIntensity;
+    uniform float uHalationIntensity;
+    uniform float uSaturation;
+    uniform float uContrast;
+    uniform vec3 uTint;
+    
+    uniform vec2 uResolution;
 
-            float random(vec2 st) {
+    float random(vec2 st) {
     return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
@@ -91,36 +76,67 @@ void main() {
 }
 `;
 
-        // --- Init Shaders ---
-        const initShaderProgram = (gl: WebGLRenderingContext, vsSource: string, fsSource: string) => {
-            const loadShader = (gl: WebGLRenderingContext, type: number, source: string) => {
-                const shader = gl.createShader(type);
-                if (!shader) return null;
-                gl.shaderSource(shader, source);
-                gl.compileShader(shader);
-                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-                    console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
-                    gl.deleteShader(shader);
-                    return null;
-                }
-                return shader;
-            };
+// --- Init Shaders ---
+const initShaderProgram = (gl: WebGLRenderingContext, vsSource: string, fsSource: string) => {
+    const loadShader = (gl: WebGLRenderingContext, type: number, source: string) => {
+        const shader = gl.createShader(type);
+        if (!shader) return null;
+        gl.shaderSource(shader, source);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+            gl.deleteShader(shader);
+            return null;
+        }
+        return shader;
+    };
 
-            const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-            const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-            if (!vertexShader || !fragmentShader) return null;
+    const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+    const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+    if (!vertexShader || !fragmentShader) return null;
 
-            const shaderProgram = gl.createProgram();
-            if (!shaderProgram) return null;
-            gl.attachShader(shaderProgram, vertexShader);
-            gl.attachShader(shaderProgram, fragmentShader);
-            gl.linkProgram(shaderProgram);
+    const shaderProgram = gl.createProgram();
+    if (!shaderProgram) return null;
+    gl.attachShader(shaderProgram, vertexShader);
+    gl.attachShader(shaderProgram, fragmentShader);
+    gl.linkProgram(shaderProgram);
 
-            if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-                return null;
-            }
-            return shaderProgram;
-        };
+    if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
+        return null;
+    }
+    return shaderProgram;
+};
+
+function isPowerOf2(value: number) {
+    return (value & (value - 1)) === 0;
+}
+
+function resizeCanvasToImage(gl: WebGLRenderingContext | null, c: HTMLCanvasElement, img: HTMLImageElement) {
+    const maxWidth = 800;
+    const scale = maxWidth / img.width;
+    if (scale < 1) {
+        c.width = maxWidth;
+        c.height = img.height * scale;
+    } else {
+        c.width = img.width;
+        c.height = img.height;
+    }
+    gl?.viewport(0, 0, c.width, c.height);
+}
+
+const FilmCanvas: React.FC<FilmCanvasProps> = ({ imageSrc, preset }) => {
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const textureRef = useRef<WebGLTexture | null>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const gl = canvas.getContext('webgl');
+        if (!gl) {
+            console.error('WebGL not supported');
+            return;
+        }
 
         const program = initShaderProgram(gl, vsSource, fsSource);
         if (!program) return;
@@ -190,27 +206,10 @@ void main() {
                 }
 
                 // Update canvas and render once image is ready
-                resizeCanvasToImage(canvas, image);
+                resizeCanvasToImage(gl, canvas, image);
                 render();
             };
             image.src = imageSrc;
-        }
-
-        function isPowerOf2(value: number) {
-            return (value & (value - 1)) === 0;
-        }
-
-        function resizeCanvasToImage(c: HTMLCanvasElement, img: HTMLImageElement) {
-            const maxWidth = 800;
-            const scale = maxWidth / img.width;
-            if (scale < 1) {
-                c.width = maxWidth;
-                c.height = img.height * scale;
-            } else {
-                c.width = img.width;
-                c.height = img.height;
-            }
-            gl?.viewport(0, 0, c.width, c.height);
         }
 
         // --- Render function (One-shot) ---
@@ -238,7 +237,7 @@ void main() {
             gl.uniform1f(uniformLocs.uSaturation, preset.saturation);
             gl.uniform1f(uniformLocs.uContrast, preset.contrast);
             gl.uniform3fv(uniformLocs.uTint, preset.tint);
-            
+
             gl.uniform2f(uniformLocs.uResolution, gl.canvas.width, gl.canvas.height);
 
             gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -249,9 +248,9 @@ void main() {
             // Optimization: we could just call render() if texture exists.
             if (textureRef.current) render();
         } else {
-            render(); 
+            render();
         }
-        
+
         return () => {
             gl.deleteTexture(texture);
             gl.deleteProgram(program);
@@ -262,4 +261,3 @@ void main() {
 };
 
 export default FilmCanvas;
-```
