@@ -1,0 +1,1 @@
+C:\Users\willi\OneDrive\Documents\resume-projects\film-emulation-engine\target\wasm32-unknown-unknown\release\libfilm_emulation_engine.rlib: C:\Users\willi\OneDrive\Documents\resume-projects\film-emulation-engine\src\lib.rs
