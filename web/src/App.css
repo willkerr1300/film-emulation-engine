@@ -39,8 +39,9 @@
 }
 
 .film-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 2rem;
 }
 
@@ -51,6 +52,10 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  /* (100% - 2 * gap) / 3 */
+  flex: 0 0 calc((100% - 4rem) / 3);
+  /* Ensure they don't get too small on mobile, though media queries are better */
+  min-width: 300px;
 }
 
 .film-header {
