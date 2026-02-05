@@ -54,7 +54,7 @@ impl EmulationEngine {
             let next_row = (y + 1) * w * 4;
 
             // Using chunks_exact and explicit loop unrolling hints to broading the vectorization window
-            for x in (1..w - 1) {
+            for x in 1..w - 1 {
                 let idx = row_start + x * 4;
                 
                 // Unrolling the 3x3 kernel manually helps the compiler's SIMD discovery
